@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover">
+<title>OPERAÇÃO ORÇAMENTO — Controle Financeiro</title>
+<meta name="description" content="Controle financeiro pessoal — dívidas, receitas, orçamento, cartões e reserva.">
+<meta name="theme-color" content="#0a0a0a">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div id="app-shell">
+
+  <!-- TOP BAR -->
+  <header class="topbar">
+    <button id="btn-menu" class="btn-icon" aria-label="Abrir menu" title="Menu">
+      <svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+    </button>
+    <div class="brand">
+      <span class="brand-mark">★</span>
+      <span class="brand-text">OPERAÇÃO<strong>ORÇAMENTO</strong></span>
+    </div>
+    <div class="topbar-right">
+      <span id="mes-atual-badge" class="badge-mes">--/----</span>
+    </div>
+  </header>
+
+  <div class="app-body">
+    <!-- SIDE NAV -->
+    <nav id="sidenav" class="sidenav">
+      <div class="sidenav-header">
+        <span class="sidenav-title">MENU TÁTICO</span>
+        <button id="btn-close-menu" class="btn-icon btn-close-menu" aria-label="Fechar menu">
+          <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <ul class="nav-list">
+        <li><a href="#/dashboard" class="nav-link" data-route="dashboard"><span class="nav-ico">◆</span>QG / Dashboard</a></li>
+        <li><a href="#/dividas" class="nav-link" data-route="dividas"><span class="nav-ico">▦</span>Dívidas &amp; Contas</a></li>
+        <li><a href="#/receitas" class="nav-link" data-route="receitas"><span class="nav-ico">▲</span>Receitas</a></li>
+        <li><a href="#/gastos" class="nav-link" data-route="gastos"><span class="nav-ico">✕</span>Gastos</a></li>
+        <li><a href="#/cartoes" class="nav-link" data-route="cartoes"><span class="nav-ico">▮</span>Cartões</a></li>
+        <li><a href="#/poupanca" class="nav-link" data-route="poupanca"><span class="nav-ico">⛨</span>Reserva</a></li>
+        <li><a href="#/investir" class="nav-link" data-route="investir"><span class="nav-ico">i</span>Inteligência (Investir)</a></li>
+        <li><a href="#/config" class="nav-link" data-route="config"><span class="nav-ico">⚙</span>Config &amp; Backup</a></li>
+      </ul>
+      <div class="sidenav-footer">
+        <span class="skull">☠</span>
+        <span>DADOS 100% LOCAIS · SEM NUVEM</span>
+      </div>
+    </nav>
+    <div id="nav-overlay" class="nav-overlay"></div>
+
+    <!-- MAIN CONTENT -->
+    <main id="app-content" class="app-content" role="main">
+      <!-- rendered by JS -->
+    </main>
+  </div>
+
+  <!-- BOTTOM NAV (mobile) -->
+  <nav class="bottomnav">
+    <a href="#/dashboard" class="bnav-link" data-route="dashboard"><span class="nav-ico">◆</span><small>QG</small></a>
+    <a href="#/gastos" class="bnav-link" data-route="gastos"><span class="nav-ico">✕</span><small>Gastos</small></a>
+    <a href="#/cartoes" class="bnav-link" data-route="cartoes"><span class="nav-ico">▮</span><small>Cartão</small></a>
+    <a href="#/poupanca" class="bnav-link" data-route="poupanca"><span class="nav-ico">⛨</span><small>Reserva</small></a>
+    <a href="#/config" class="bnav-link" data-route="config"><span class="nav-ico">⚙</span><small>Config</small></a>
+  </nav>
+
+  <!-- FAB quick add expense -->
+  <button id="fab-gasto" class="fab" title="Lançar gasto rápido" aria-label="Lançar gasto rápido">+</button>
+</div>
+
+<!-- MODAL -->
+<div id="modal-backdrop" class="modal-backdrop">
+  <div id="modal-box" class="modal-box" role="dialog" aria-modal="true">
+    <div id="modal-content"></div>
+  </div>
+</div>
+
+<!-- TOASTS -->
+<div id="toast-container" class="toast-container"></div>
+
+<script src="js/store.js"></script>
+<script src="js/calc.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/views/dashboard.js"></script>
+<script src="js/views/dividas.js"></script>
+<script src="js/views/receitas.js"></script>
+<script src="js/views/gastos.js"></script>
+<script src="js/views/cartoes.js"></script>
+<script src="js/views/poupanca.js"></script>
+<script src="js/views/investir.js"></script>
+<script src="js/views/config.js"></script>
+<script src="js/fechamento.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+# Dados financeiros pessoais — arquivos de transferência/importação pontual,
+# não fazem parte do app. Os dados reais vivem só no localStorage do navegador.
+backup-*.json
+receitas-*.json
+dividas-*.json
+gastos-*.json
+
+# Artefatos de teste local (servidor de preview temporário) e config local do Claude Code
+.claude/launch.json
+.claude/settings.local.json
+
+# SO
+.DS_Store
+Thumbs.db
