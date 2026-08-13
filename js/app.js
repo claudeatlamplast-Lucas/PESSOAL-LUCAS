@@ -65,5 +65,3 @@ function initApp(){
   renderCurrentRoute();
   checkAutoFechamento();
 }
-
-document.addEventListener('DOMContentLoaded', initApp);

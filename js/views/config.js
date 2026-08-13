@@ -80,6 +80,12 @@ function renderConfig(container){
       <p class="hint">"Importar e Mesclar" soma novos itens sem apagar o que já está salvo — use para arquivos parciais (ex: só dívidas, só receitas). "Importar Backup" substitui tudo.</p>
     </div>
 
+    <div class="section-title">Segurança</div>
+    <div class="panel">
+      <p class="hint">Este aparelho fica destravado até você bloquear de novo ou apagar os dados do navegador.</p>
+      <button class="btn" id="btn-bloquear">🔒 Bloquear Agora</button>
+    </div>
+
     <div class="section-title">Zona de Risco</div>
     <div class="panel card alert" style="border-left-width:3px;">
       <div class="card-label">Apagar todos os dados</div>
@@ -175,5 +181,9 @@ function renderConfig(container){
       showToast('Todos os dados foram apagados.');
       renderCurrentRoute();
     }
+  });
+
+  container.querySelector('#btn-bloquear').addEventListener('click', ()=>{
+    trancarApp();
   });
 }

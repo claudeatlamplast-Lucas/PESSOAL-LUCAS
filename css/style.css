@@ -350,3 +350,36 @@ input, select, textarea{ font-family: var(--font-body); }
 .gap-sm{ gap:.5rem; }
 .mt-1{ margin-top:1rem; }
 .mb-0{ margin-bottom:0; }
+
+/* ---------------- gate (trava de acesso) ---------------- */
+body.gate-lock{ overflow:hidden; }
+.gate-overlay{
+  display:none; position:fixed; inset:0; z-index:500;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(75,83,32,.15), transparent 55%),
+    repeating-linear-gradient(45deg, rgba(255,255,255,.015) 0 10px, transparent 10px 20px),
+    var(--bg-0);
+  align-items:center; justify-content:center;
+}
+.gate-overlay.open{ display:flex; }
+.gate-overlay.shake .gate-box{ animation: gate-shake .3s ease; }
+@keyframes gate-shake{
+  0%,100%{ transform:translateX(0); }
+  25%{ transform:translateX(-8px); }
+  75%{ transform:translateX(8px); }
+}
+.gate-box{
+  width:90%; max-width:320px; text-align:center;
+  background: var(--bg-card); border:1px solid var(--border-1); border-top:3px solid var(--olive);
+  border-radius: var(--radius); padding:2rem 1.5rem; box-shadow: var(--shadow-hard);
+}
+.gate-mark{ font-size:2rem; color: var(--gunmetal-light); margin-bottom:.5rem; }
+.gate-title{ font-size:1.1rem; letter-spacing:.1em; margin-bottom:.2rem; border:none; padding:0; }
+.gate-sub{ font-family:var(--font-mono); font-size:.7rem; color:var(--text-2); letter-spacing:.15em; margin:0 0 1.4rem; }
+.gate-input{
+  width:100%; background: var(--bg-0); border:1px solid var(--border-1); color: var(--text-0);
+  padding:.7rem; text-align:center; font-size:1.3rem; letter-spacing:.3em; border-radius: var(--radius);
+  margin-bottom:.8rem; font-family: var(--font-mono);
+}
+.gate-input:focus{ outline:none; border-color: var(--olive-light); }
+.gate-error{ color: var(--alert-light); font-size:.78rem; margin-top:.7rem; min-height:1em; }
