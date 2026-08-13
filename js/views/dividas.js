@@ -83,8 +83,12 @@ function renderDividas(container){
   container.querySelectorAll('[data-toggle-status]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const item = STATE.dividas.find(x=>x.id===btn.dataset.toggleStatus);
-      updateDivida(item.id, { status: item.status==='paga' ? 'pendente' : 'paga' });
+      const vaiPagar = item.status !== 'paga';
+      updateDivida(item.id, { status: vaiPagar ? 'paga' : 'pendente' });
       renderDividas(container);
+      showToast(vaiPagar
+        ? `Paga. Saldo em conta atualizado para ${formatCurrency(STATE.saldoConta.valor)}.`
+        : `Voltou para pendente. Saldo em conta atualizado para ${formatCurrency(STATE.saldoConta.valor)}.`);
     });
   });
 }

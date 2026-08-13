@@ -186,7 +186,7 @@ function openGastoForm(existing, onSaved){
           showToast('Preencha todos os campos obrigatórios.', 'error'); return;
         }
         if(isEdit){ updateGasto(existing.id, payload); showToast('Gasto atualizado.'); }
-        else { addGasto(payload); showToast('Gasto lançado.'); }
+        else { addGasto(payload); showToast(`Gasto lançado. Saldo em conta: ${formatCurrency(STATE.saldoConta.valor)}.`); }
         closeModal();
         onSaved();
       });

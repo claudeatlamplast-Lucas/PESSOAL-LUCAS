@@ -84,9 +84,19 @@ function addDivida(d){
   STATE.dividas.push(Object.assign({ id: uid(), status:'pendente', parcelas:1, parcelaAtual:1 }, d));
   saveState();
 }
+/**
+ * Ao mudar status para 'paga', desconta o valor do saldo em conta (o dinheiro saiu de verdade);
+ * ao voltar para 'pendente' (desfazer), devolve o valor. Não mexe no saldo em outras edições.
+ */
 function updateDivida(id, patch){
   const item = STATE.dividas.find(x=>x.id===id);
-  if(item) Object.assign(item, patch);
+  if(item){
+    if(patch.status !== undefined && patch.status !== item.status){
+      if(patch.status === 'paga') ajustarSaldoConta(-Number(item.valor||0));
+      else if(item.status === 'paga') ajustarSaldoConta(Number(item.valor||0));
+    }
+    Object.assign(item, patch);
+  }
   saveState();
 }
 function deleteDivida(id){
@@ -109,17 +119,28 @@ function deleteReceita(id){
   saveState();
 }
 
-/* ---------------- Gastos ---------------- */
+/* ---------------- Gastos ----------------
+   Todo gasto lançado é dinheiro que já saiu da conta — desconta do saldo ao
+   criar, ajusta a diferença ao editar o valor, e devolve ao excluir. */
 function addGasto(g){
-  STATE.gastos.push(Object.assign({ id: uid(), inesperado:false }, g));
+  const gasto = Object.assign({ id: uid(), inesperado:false }, g);
+  STATE.gastos.push(gasto);
+  ajustarSaldoConta(-Number(gasto.valor||0));
   saveState();
 }
 function updateGasto(id, patch){
   const item = STATE.gastos.find(x=>x.id===id);
-  if(item) Object.assign(item, patch);
+  if(item){
+    const valorAntigo = Number(item.valor||0);
+    Object.assign(item, patch);
+    const valorNovo = Number(item.valor||0);
+    if(valorNovo !== valorAntigo) ajustarSaldoConta(valorAntigo - valorNovo);
+  }
   saveState();
 }
 function deleteGasto(id){
+  const item = STATE.gastos.find(x=>x.id===id);
+  if(item) ajustarSaldoConta(Number(item.valor||0));
   STATE.gastos = STATE.gastos.filter(x=>x.id!==id);
   saveState();
 }
@@ -159,6 +180,13 @@ function deleteCompraCartao(id){
 function updateSaldoConta(valor){
   STATE.saldoConta = { valor: Number(valor)||0, atualizadoEm: new Date().toISOString().slice(0,10) };
   saveState();
+}
+/** Soma/subtrai do saldo em conta automaticamente (dívida paga, gasto lançado/editado/excluído). */
+function ajustarSaldoConta(delta){
+  if(!delta) return;
+  if(!STATE.saldoConta) STATE.saldoConta = { valor:0, atualizadoEm:'' };
+  STATE.saldoConta.valor = Number(STATE.saldoConta.valor||0) + delta;
+  STATE.saldoConta.atualizadoEm = new Date().toISOString().slice(0,10);
 }
 
 /* ---------------- Config orçamento ---------------- */
