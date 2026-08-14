@@ -179,18 +179,22 @@ function calcResumoMes(mes){
 /* ---------------- Situação de caixa / priorização de pagamentos ---------------- */
 
 /**
- * Simula o fluxo de caixa do mês atual real (não o mês navegado na tela) a partir do
- * saldo em conta informado pelo usuário: soma receitas ainda não recebidas (data futura)
- * e subtrai dívidas pendentes (na ordem de vencimento), identificando se o saldo corre
- * risco de ficar negativo e quanto dá pra guardar com segurança na reserva.
+ * Monta a linha do tempo de caixa do mês atual real (não o mês navegado na tela), a partir
+ * do saldo em conta informado, andando dia a dia pelas dívidas pendentes e receitas ainda não
+ * recebidas. `overrides` (opcional) é um mapa { dividaId: novoDia } usado só para simulação —
+ * não altera os dados salvos, só o dia considerado nesta conta para o cálculo.
  */
-function calcSituacaoCaixa(){
+function gerarLinhaDoTempoCaixa(overrides){
+  overrides = overrides || {};
   const mes = currentMonthKey();
   const hoje = new Date();
   const hojeDia = hoje.getDate();
   const saldoAtual = Number((STATE.saldoConta && STATE.saldoConta.valor) || 0);
 
-  const pendentes = STATE.dividas.filter(d=>d.mes===mes && d.status!=='paga');
+  const pendentes = STATE.dividas.filter(d=>d.mes===mes && d.status!=='paga').map(d=>{
+    const diaOverride = overrides[d.id];
+    return diaOverride === undefined ? d : Object.assign({}, d, { vencimento: diaOverride===null ? null : Number(diaOverride) });
+  });
   const atrasadas = pendentes.filter(d=>d.vencimento!=null && Number(d.vencimento) < hojeDia)
     .sort((a,b)=>Number(a.vencimento)-Number(b.vencimento));
   const futurasComData = pendentes.filter(d=>d.vencimento!=null && Number(d.vencimento) >= hojeDia)
@@ -218,8 +222,10 @@ function calcSituacaoCaixa(){
   let minimoAtingido = saldoCorrente;
   let eventoCritico = atrasadas.length ? { tipo:'divida', dia:hojeDia, nome: atrasadas[0].nome, atrasada:true } : null;
 
+  const pontos = [{ dia: hojeDia, saldo: saldoCorrente, tipo:'inicio', nome:'Hoje' }];
   eventos.forEach(ev=>{
     saldoCorrente += ev.valor;
+    pontos.push({ dia: ev.dia, saldo: saldoCorrente, tipo: ev.tipo, nome: ev.nome });
     if(saldoCorrente < minimoAtingido){
       minimoAtingido = saldoCorrente;
       eventoCritico = ev;
@@ -231,9 +237,105 @@ function calcSituacaoCaixa(){
   const reservaSegura = Math.max(0, minimoAtingido - totalSemData);
 
   return {
-    mes, saldoAtual, atrasadas, futurasComData, semData, receitasFuturas,
+    mes, hojeDia, saldoAtual, atrasadas, futurasComData, semData, receitasFuturas, pontos,
     saldoFinalProjetado: saldoCorrente, minimoAtingido, eventoCritico,
     deficit, valorFaltante: deficit ? Math.abs(minimoAtingido) : 0,
     reservaSegura
   };
+}
+
+function calcSituacaoCaixa(){
+  return gerarLinhaDoTempoCaixa();
+}
+
+/** Simula "e se eu pagar/receber a conta X no dia Y" sem alterar os dados salvos. */
+function calcSimulacaoCenario(dividaId, novoDia){
+  const overrides = {};
+  overrides[dividaId] = (novoDia===''||novoDia===null||novoDia===undefined) ? null : Number(novoDia);
+  return gerarLinhaDoTempoCaixa(overrides);
+}
+
+/* ---------------- Mentor de Gastos e Estratégias ---------------- */
+
+/**
+ * Para cada ponto da linha do tempo, calcula a "folga": quanto dá pra gastar naquele dia
+ * sem que o saldo fique negativo em nenhum dia seguinte do mês (mínimo dali pra frente).
+ */
+function calcularFolgasPorPonto(pontos){
+  const n = pontos.length;
+  const sufixoMin = new Array(n);
+  sufixoMin[n-1] = pontos[n-1].saldo;
+  for(let i=n-2;i>=0;i--){ sufixoMin[i] = Math.min(pontos[i].saldo, sufixoMin[i+1]); }
+  return pontos.map((p,i)=>Object.assign({}, p, { folga: sufixoMin[i] }));
+}
+
+/** Acha o dia do mês (entre hoje e o fim do mês) com mais folga de caixa — o melhor momento pra gastar ou guardar. */
+function melhorPontoComFolga(pontos){
+  const comFolga = calcularFolgasPorPonto(pontos);
+  let melhor = comFolga[0];
+  comFolga.forEach(p=>{ if(p.folga > melhor.folga + 0.005) melhor = p; });
+  return melhor;
+}
+
+function calcMentor(){
+  const mes = currentMonthKey();
+  const caixa = gerarLinhaDoTempoCaixa();
+  const orcCategorias = calcOrcamentoPorCategoria(mes);
+  const receita = calcReceitaTotal(mes);
+  const dividasTotal = calcDividasTotal(mes);
+  const melhorPonto = melhorPontoComFolga(caixa.pontos);
+
+  const pagamentos = [];
+  caixa.atrasadas.forEach(d=>{
+    pagamentos.push({ divida:d, dia:null, status:'atrasada',
+      mensagem:'Está atrasada — pague assim que possível, antes de qualquer gasto novo.' });
+  });
+  caixa.futurasComData.forEach(d=>{
+    const critico = caixa.eventoCritico && caixa.eventoCritico.item === d;
+    pagamentos.push({ divida:d, dia:d.vencimento, status: critico ? 'apertado' : 'tranquilo',
+      mensagem: critico
+        ? `Pague no dia ${d.vencimento} — é o ponto mais apertado do mês, evite adiantar ou gastar extra perto dessa data.`
+        : `Pode pagar tranquilo no dia ${d.vencimento}, sem risco pro saldo.` });
+  });
+  caixa.semData.forEach(d=>{
+    const seguro = melhorPonto.folga >= Number(d.valor||0);
+    pagamentos.push({ divida:d, dia: melhorPonto.dia, status: seguro ? 'flexivel' : 'atencao',
+      mensagem: seguro
+        ? `Sem data marcada — dia ${melhorPonto.dia} é quando o caixa está mais folgado esse mês, bom momento pra resolver essa.`
+        : `Sem data marcada, e o mês está apertado pra esse valor — resolva só depois de garantir as contas com vencimento fixo.` });
+  });
+
+  const catsOrdenadas = Object.entries(orcCategorias);
+  const mercadoEntry = catsOrdenadas.find(([c])=>c==='mercado') || catsOrdenadas[0];
+  const mercado = mercadoEntry ? {
+    categoria: mercadoEntry[0],
+    dia: melhorPonto.dia,
+    valor: Math.max(0, Math.min(mercadoEntry[1].restante, melhorPonto.folga))
+  } : null;
+
+  const poupanca = { dia: caixa.reservaSegura>0 ? caixa.hojeDia : melhorPonto.dia, valor: caixa.reservaSegura };
+
+  const estrategias = [];
+  if(receita > 0){
+    const pctDividas = dividasTotal/receita*100;
+    estrategias.push(pctDividas > 50
+      ? `Suas contas fixas consomem ${Math.round(pctDividas)}% da renda do mês — acima da faixa saudável (até 50%). Vale ver o que dá pra renegociar ou cortar.`
+      : `Suas contas fixas consomem ${Math.round(pctDividas)}% da renda — dentro de uma faixa saudável.`);
+    const metaPoupanca = Number(STATE.configOrcamento.metaPoupancaMensal||0);
+    const pctPoupanca = metaPoupanca/receita*100;
+    if(pctPoupanca < 10){
+      estrategias.push(`Você está reservando ${pctPoupanca.toFixed(0)}% da renda por mês. Se der, tente subir aos poucos até uns 10-20%.`);
+    }
+  }
+  const categoriasEstourando = catsOrdenadas.filter(([,v])=>v.percentualUsado>=100);
+  if(categoriasEstourando.length){
+    estrategias.push(`${categoriasEstourando.map(([c])=>categoriaLabel(c)).join(', ')} já estourou o orçamento do mês — considere segurar os gastos ali ou reajustar os percentuais em Config.`);
+  }
+  if(caixa.deficit){
+    estrategias.push(`Nesse ritmo, o saldo fica negativo perto do dia ${caixa.eventoCritico ? caixa.eventoCritico.dia : '?'}. Priorize as contas com data fixa e segure gastos variáveis até resolver isso.`);
+  } else if(caixa.reservaSegura > 0){
+    estrategias.push(`O mês está sob controle — dá pra guardar ${formatCurrency(caixa.reservaSegura)} sem comprometer nenhuma conta.`);
+  }
+
+  return { caixa, pagamentos, mercado, poupanca, estrategias, melhorPonto };
 }

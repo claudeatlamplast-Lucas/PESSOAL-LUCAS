@@ -6,6 +6,7 @@ let mesSelecionado = currentMonthKey();
 
 const ROUTES = {
   dashboard: renderDashboard,
+  mentor: renderMentor,
   dividas: renderDividas,
   receitas: renderReceitas,
   gastos: renderGastos,

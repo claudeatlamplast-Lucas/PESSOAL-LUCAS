@@ -29,6 +29,7 @@ function renderDashboard(container){
   }));
 
   const situacao = calcSituacaoCaixa();
+  const mentorTeaser = calcMentor().estrategias[0] || 'Confira as sugestões de pagamento, mercado e reserva.';
 
   container.innerHTML = `
     <div class="flex-between" style="margin-bottom:1rem; flex-wrap:wrap; gap:.5rem;">
@@ -41,6 +42,14 @@ function renderDashboard(container){
     <div class="stripe-bar"></div>
 
     ${situacaoCaixaHTML(situacao)}
+
+    <div class="panel flex-between" style="align-items:center; gap:.75rem; flex-wrap:wrap;">
+      <div>
+        <div class="card-label">🎯 Mentor de Gastos</div>
+        <div class="text-sm">${escapeHtml(mentorTeaser)}</div>
+      </div>
+      <a href="#/mentor" class="btn btn-sm">Ver mentor completo →</a>
+    </div>
 
     ${categoriasEstourando.length ? `
     <div class="panel card alert" style="border-left-width:3px;">
