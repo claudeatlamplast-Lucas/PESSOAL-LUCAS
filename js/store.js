@@ -300,13 +300,14 @@ function prepararProximoMes(mesOrigem){
  * Salva (ou atualiza) a "foto" do relatório de `mes` em STATE.fechamentos — os números
  * ficam congelados no momento do fechamento. Mantém a data original de fechamento ao atualizar.
  */
-function salvarRelatorioFechamento(mes){
+function salvarRelatorioFechamento(mes, retroativo){
   if(!STATE.fechamentos) STATE.fechamentos = {};
   const anterior = STATE.fechamentos[mes];
   const hoje = new Date().toISOString().slice(0,10);
   STATE.fechamentos[mes] = {
     fechadoEm: anterior ? anterior.fechadoEm : hoje,
     atualizadoEm: hoje,
+    retroativo: anterior ? !!anterior.retroativo : !!retroativo,
     dados: calcRelatorioMes(mes)
   };
   saveState();

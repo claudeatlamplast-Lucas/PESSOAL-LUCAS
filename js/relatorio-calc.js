@@ -212,3 +212,71 @@ function gerarAnaliseRelatorio(r){
   }
   return out;
 }
+
+/* ---------------- Histórico / evolução entre meses fechados ---------------- */
+
+/** Uma linha por mês fechado (ordem cronológica), tirada dos relatórios salvos. */
+function calcHistorico(){
+  const fech = STATE.fechamentos || {};
+  return Object.keys(fech).sort().map(mes=>{
+    const d = fech[mes].dados;
+    return {
+      mes, receita:d.receita, contas:d.dividasTotal, gastos:d.gastosTotal, inesperados:d.inesperados,
+      saidas:d.dividasTotal + d.gastosTotal, sobra:d.sobra, poupado:d.poupadoNoMes,
+      pctContas:d.pctContas, taxaPoupanca:d.taxaPoupanca, emAberto:d.dividasEmAberto.length,
+      veredicto:d.veredicto, retroativo:!!fech[mes].retroativo,
+      categorias:d.gastosPorCategoria.reduce((m,c)=>{ m[c.categoria]={ label:c.label, gasto:c.gasto }; return m; }, {})
+    };
+  });
+}
+
+/** Análise de melhora: último mês fechado vs anterior, média recente e recordes. */
+function gerarAnaliseHistorico(h){
+  const fmt = formatCurrency;
+  const out = [];
+  const add = (nivel, texto)=>out.push({ nivel, texto });
+  if(h.length < 2){
+    add('info', h.length ? 'Só há 1 mês fechado até agora. A partir do segundo mês, a comparação de evolução aparece aqui.' : 'Nenhum mês fechado ainda.');
+    return out;
+  }
+  const ult = h[h.length-1], ant = h[h.length-2];
+  const lu = formatMonthLabel(ult.mes), la = formatMonthLabel(ant.mes);
+  const dSobra = ult.sobra - ant.sobra;
+  add(dSobra>=0 ? 'ok' : 'warn', `A sobra ${dSobra>=0?'melhorou':'piorou'} ${fmt(Math.abs(dSobra))} de ${la} (${fmt(ant.sobra)}) para ${lu} (${fmt(ult.sobra)}).`);
+  const dG = variacaoPct(ult.gastos, ant.gastos);
+  if(dG!=null) add(dG<=0 ? 'ok' : (dG>15 ? 'warn' : 'info'), `Gastos por fora ${dG<=0?'caíram':'subiram'} ${Math.abs(Math.round(dG))}% (${fmt(ant.gastos)} → ${fmt(ult.gastos)}).`);
+  if(ult.pctContas!=null && ant.pctContas!=null){
+    const dp = ult.pctContas - ant.pctContas;
+    if(Math.abs(dp)>=1) add(dp<0 ? 'ok' : 'warn', `O peso das contas na receita ${dp<0?'diminuiu':'aumentou'} de ${Math.round(ant.pctContas)}% para ${Math.round(ult.pctContas)}%.`);
+  }
+  if(ult.taxaPoupanca!=null && ant.taxaPoupanca!=null){
+    const dt = ult.taxaPoupanca - ant.taxaPoupanca;
+    if(Math.abs(dt)>=0.5) add(dt>0 ? 'ok' : 'warn', `A taxa de poupança ${dt>0?'subiu':'caiu'} de ${ant.taxaPoupanca.toFixed(1)}% para ${ult.taxaPoupanca.toFixed(1)}% da receita.`);
+  }
+
+  /* Categoria que mais mudou entre os dois últimos meses */
+  const cats = new Set([...Object.keys(ult.categorias), ...Object.keys(ant.categorias)]);
+  let maiorAlta = null, maiorQueda = null;
+  cats.forEach(c=>{
+    const a = (ant.categorias[c]||{}).gasto || 0, u = (ult.categorias[c]||{}).gasto || 0;
+    const label = (ult.categorias[c]||ant.categorias[c]).label;
+    const d = u - a;
+    if(d>0 && (!maiorAlta || d>maiorAlta.d)) maiorAlta = { label, d, a, u };
+    if(d<0 && (!maiorQueda || d<maiorQueda.d)) maiorQueda = { label, d, a, u };
+  });
+  if(maiorAlta && maiorAlta.d>=50) add('warn', `Categoria que mais subiu: ${maiorAlta.label} (${fmt(maiorAlta.a)} → ${fmt(maiorAlta.u)}).`);
+  if(maiorQueda && -maiorQueda.d>=50) add('ok', `Categoria que mais caiu: ${maiorQueda.label} (${fmt(maiorQueda.a)} → ${fmt(maiorQueda.u)}).`);
+
+  /* Tendência geral */
+  if(h.length >= 3){
+    const mediaRec = h.slice(-3).reduce((s,x)=>s+x.sobra,0)/3;
+    add('info', `Sobra média dos últimos 3 meses: ${fmt(mediaRec)}.`);
+  }
+  const melhor = h.reduce((m,x)=>x.sobra>m.sobra?x:m, h[0]);
+  const pior = h.reduce((m,x)=>x.sobra<m.sobra?x:m, h[0]);
+  add('info', `Melhor mês: ${formatMonthLabel(melhor.mes)} (${fmt(melhor.sobra)}). Pior mês: ${formatMonthLabel(pior.mes)} (${fmt(pior.sobra)}).`);
+  let seq = 0;
+  for(let i=h.length-1;i>=0 && h[i].sobra>=0;i--) seq++;
+  if(seq>=2) add('ok', `${seq} meses seguidos fechando no positivo.`);
+  return out;
+}

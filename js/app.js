@@ -8,6 +8,7 @@ const ROUTES = {
   dashboard: renderDashboard,
   mentor: renderMentor,
   relatorio: renderRelatorio,
+  historico: renderHistorico,
   dividas: renderDividas,
   receitas: renderReceitas,
   gastos: renderGastos,
@@ -66,4 +67,8 @@ function initApp(){
   if(!window.location.hash){ window.location.hash = '#/dashboard'; }
   renderCurrentRoute();
   checkAutoFechamento();
+
+  // App aberto de um dia pro outro: confere de novo ao voltar pra aba e a cada 30 min.
+  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) checkAutoFechamento(); });
+  setInterval(checkAutoFechamento, 30*60*1000);
 }

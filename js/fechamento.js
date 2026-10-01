@@ -97,18 +97,75 @@ function openResumoMesModal(mes, opts){
   });
 }
 
-/** Chamado na inicialização: se o mês virou desde a última vez que o app foi aberto, sugere o fechamento. */
-function checkAutoFechamento(){
+function mesTemDados(mes){
+  return STATE.dividas.some(d=>d.mes===mes) || STATE.receitas.some(r=>r.mes===mes) || STATE.gastos.some(g=>g.mes===mes);
+}
+
+/**
+ * Fecha sozinho todo mês que já ficou para trás (calendário virou): salva o relatório,
+ * copia as recorrentes pro mês seguinte e avança o mês em vigência. Meses sem nenhum
+ * lançamento só avançam. Também gera relatório retroativo para meses antigos com dados
+ * que nunca foram fechados. Retorna a lista de meses fechados nesta chamada.
+ */
+function fecharMesesVencidos(){
   const mesAtual = currentMonthKey();
-  if(!STATE.ultimoMesAberto){
-    marcarMesAberto(mesAtual);
-    return;
+  if(!STATE.ultimoMesAberto){ marcarMesAberto(mesAtual); return []; }
+  const fechados = [];
+  let guarda = 0;
+  while(STATE.ultimoMesAberto < mesAtual && guarda++ < 36){
+    const m = STATE.ultimoMesAberto;
+    if(mesTemDados(m)){ fecharMes(m); fechados.push(m); }
+    else marcarMesAberto(shiftMonthKey(m, 1));
   }
-  if(STATE.ultimoMesAberto === mesAtual) return;
-  const temDados = STATE.dividas.some(d=>d.mes===STATE.ultimoMesAberto) || STATE.receitas.some(r=>r.mes===STATE.ultimoMesAberto);
-  if(!temDados){
-    marcarMesAberto(mesAtual);
-    return;
-  }
-  openResumoMesModal(STATE.ultimoMesAberto, { podeFechar:true, automatico:true });
+  listaMesesConhecidos()
+    .filter(m=>m<mesAtual && !(STATE.fechamentos && STATE.fechamentos[m]) && mesTemDados(m))
+    .forEach(m=>salvarRelatorioFechamento(m, true));
+  return fechados;
+}
+
+function openAvisoFechamentoAutomatico(meses){
+  const itens = meses.map(m=>{
+    const d = STATE.fechamentos[m].dados;
+    return `
+      <div class="row-item">
+        <div class="ri-main">
+          <div class="ri-title">${escapeHtml(formatMonthLabel(m))}</div>
+          <div class="ri-sub" style="color:${NIVEL_COR[d.veredicto.nivel]}">${escapeHtml(d.veredicto.titulo)}</div>
+        </div>
+        <div class="ri-value" style="color:${d.sobra>=0?'var(--success)':'var(--alert-light)'}">${formatCurrency(d.sobra)}</div>
+      </div>`;
+  }).join('');
+  const ultimo = meses[meses.length-1];
+  openModal(`
+    <div class="modal-title">
+      <h3 class="mb-0">${meses.length>1 ? 'Meses fechados' : 'Mês fechado'} automaticamente</h3>
+      <button class="btn-icon" id="modal-close"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    <p class="hint">O calendário virou. O relatório completo ficou salvo no histórico e as contas recorrentes já foram copiadas para ${escapeHtml(formatMonthLabel(STATE.ultimoMesAberto))}.</p>
+    <div class="panel list">${itens}</div>
+    <div class="form-actions">
+      <button type="button" class="btn" id="btn-aviso-fechar">Depois</button>
+      <button type="button" class="btn btn-primary" id="btn-aviso-ver">Ver relatório de ${escapeHtml(formatMonthLabel(ultimo))}</button>
+    </div>
+  `, {
+    onMount:(root)=>{
+      root.querySelector('#modal-close').addEventListener('click', closeModal);
+      root.querySelector('#btn-aviso-fechar').addEventListener('click', closeModal);
+      root.querySelector('#btn-aviso-ver').addEventListener('click', ()=>{
+        mesSelecionado = ultimo;
+        closeModal();
+        if(window.location.hash === '#/relatorio') renderCurrentRoute();
+        else window.location.hash = '#/relatorio';
+      });
+    }
+  });
+}
+
+/** Chamado na inicialização e periodicamente: se o mês virou, fecha o(s) mês(es) vencido(s) e avisa. */
+function checkAutoFechamento(){
+  const fechados = fecharMesesVencidos();
+  if(!fechados.length) return;
+  mesSelecionado = currentMonthKey();
+  renderCurrentRoute();
+  openAvisoFechamentoAutomatico(fechados);
 }
