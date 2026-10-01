@@ -36,10 +36,20 @@ function renderDashboard(container){
       <h1>QG — ${escapeHtml(formatMonthLabel(mes))}</h1>
       <div class="flex gap-sm" style="flex-wrap:wrap;">
         ${monthNavHTML()}
+        <button class="btn btn-sm" id="btn-preparar-proximo">🗓️ Preparar Próximo Mês</button>
         <button class="btn btn-sm" id="btn-resumo-mes">📋 Resumo &amp; Fechar Mês</button>
       </div>
     </div>
     <div class="stripe-bar"></div>
+
+    ${STATE.fechamentos && STATE.fechamentos[mes] ? `
+    <div class="panel flex-between" style="align-items:center; gap:.75rem; flex-wrap:wrap; border-left:3px solid var(--success);">
+      <div>
+        <div class="card-label">📋 Mês fechado</div>
+        <div class="text-sm">O relatório de ${escapeHtml(formatMonthLabel(mes))} está pronto: ${escapeHtml(STATE.fechamentos[mes].dados.veredicto.titulo)}.</div>
+      </div>
+      <a href="#/relatorio" class="btn btn-sm">Ver relatório →</a>
+    </div>` : ''}
 
     ${situacaoCaixaHTML(situacao)}
 
@@ -132,6 +142,16 @@ function renderDashboard(container){
 
   container.querySelector('#btn-resumo-mes').addEventListener('click', ()=>{
     openResumoMesModal(mes, { podeFechar:true, automatico:false });
+  });
+  container.querySelector('#btn-preparar-proximo').addEventListener('click', ()=>{
+    const resultado = prepararProximoMes(mes);
+    const total = resultado.dividasCopiadas + resultado.receitasCopiadas;
+    mesSelecionado = resultado.mes;
+    updateMesBadge();
+    showToast(total>0
+      ? `${formatMonthLabel(resultado.mes)} preparado: ${resultado.dividasCopiadas} dívida(s) e ${resultado.receitasCopiadas} receita(s) recorrentes copiadas.`
+      : `${formatMonthLabel(resultado.mes)} já estava preparado — nada novo pra copiar.`);
+    renderDashboard(container);
   });
   container.querySelector('#btn-editar-saldo')?.addEventListener('click', ()=>{
     openSaldoContaForm(()=>renderDashboard(container));

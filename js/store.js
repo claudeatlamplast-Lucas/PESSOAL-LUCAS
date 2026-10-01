@@ -52,7 +52,8 @@ function defaultState(){
     configOrcamento: defaultConfigOrcamento(),
     poupanca: [],
     saldoConta: { valor: 0, atualizadoEm: '' },
-    ultimoMesAberto: ''
+    ultimoMesAberto: '',
+    fechamentos: {}
   };
 }
 
@@ -106,7 +107,7 @@ function deleteDivida(id){
 
 /* ---------------- Receitas ---------------- */
 function addReceita(r){
-  STATE.receitas.push(Object.assign({ id: uid() }, r));
+  STATE.receitas.push(Object.assign({ id: uid(), recorrente:false }, r));
   saveState();
 }
 function updateReceita(id, patch){
@@ -240,17 +241,17 @@ function marcarMesAberto(mes){
 }
 
 /**
- * Fecha `mesFechado`: copia as dívidas marcadas como recorrentes para o mês seguinte
- * (pendentes, avançando a parcela quando aplicável) e retorna o mês seguinte.
- * Idempotente — rodar duas vezes não duplica as dívidas já copiadas.
+ * Copia para `mesDestino` as dívidas e receitas marcadas como recorrentes em `mesOrigem`
+ * (dívidas entram pendentes, avançando a parcela quando aplicável). Idempotente — rodar
+ * duas vezes não duplica o que já foi copiado. Retorna quantos itens de cada tipo entraram.
  */
-function fecharMes(mesFechado){
-  const proximoMes = shiftMonthKey(mesFechado, 1);
-  const recorrentes = STATE.dividas.filter(d=>d.mes===mesFechado && d.recorrente);
-  recorrentes.forEach(d=>{
+function copiarRecorrentesParaMes(mesOrigem, mesDestino){
+  let dividasCopiadas = 0, receitasCopiadas = 0;
+
+  STATE.dividas.filter(d=>d.mes===mesOrigem && d.recorrente).forEach(d=>{
     const parcelado = Number(d.parcelas||1) > 1;
     if(parcelado && Number(d.parcelaAtual||1) >= Number(d.parcelas)) return; // já quitada
-    const jaExiste = STATE.dividas.some(x=>x.mes===proximoMes && x.nome===d.nome && x.categoria===d.categoria && x.recorrente);
+    const jaExiste = STATE.dividas.some(x=>x.mes===mesDestino && x.nome===d.nome && x.categoria===d.categoria && x.recorrente);
     if(jaExiste) return;
     addDivida({
       nome: d.nome,
@@ -260,11 +261,65 @@ function fecharMes(mesFechado){
       parcelas: d.parcelas || 1,
       parcelaAtual: parcelado ? Number(d.parcelaAtual||1) + 1 : 1,
       status: 'pendente',
-      mes: proximoMes,
+      mes: mesDestino,
       variavel: !!d.variavel,
       recorrente: true
     });
+    dividasCopiadas++;
   });
+
+  STATE.receitas.filter(r=>r.mes===mesOrigem && r.recorrente).forEach(r=>{
+    const jaExiste = STATE.receitas.some(x=>x.mes===mesDestino && x.fonte===r.fonte && x.recorrente);
+    if(jaExiste) return;
+    const diaRef = r.data ? r.data.slice(8,10) : '05';
+    addReceita({
+      fonte: r.fonte,
+      valor: r.valor,
+      data: `${mesDestino}-${diaRef}`,
+      mes: mesDestino,
+      variavel: !!r.variavel,
+      recorrente: true
+    });
+    receitasCopiadas++;
+  });
+
+  return { dividasCopiadas, receitasCopiadas };
+}
+
+/**
+ * Prepara `mesOrigem`+1 copiando as dívidas e receitas recorrentes pra lá, sem fechar/marcar
+ * o mês atual como encerrado — pode ser chamado a qualquer momento pra adiantar o cadastro.
+ */
+function prepararProximoMes(mesOrigem){
+  const proximoMes = shiftMonthKey(mesOrigem, 1);
+  const resultado = copiarRecorrentesParaMes(mesOrigem, proximoMes);
+  return Object.assign({ mes: proximoMes }, resultado);
+}
+
+/**
+ * Salva (ou atualiza) a "foto" do relatório de `mes` em STATE.fechamentos — os números
+ * ficam congelados no momento do fechamento. Mantém a data original de fechamento ao atualizar.
+ */
+function salvarRelatorioFechamento(mes){
+  if(!STATE.fechamentos) STATE.fechamentos = {};
+  const anterior = STATE.fechamentos[mes];
+  const hoje = new Date().toISOString().slice(0,10);
+  STATE.fechamentos[mes] = {
+    fechadoEm: anterior ? anterior.fechadoEm : hoje,
+    atualizadoEm: hoje,
+    dados: calcRelatorioMes(mes)
+  };
+  saveState();
+}
+
+/**
+ * Fecha `mesFechado`: copia as recorrentes pra o mês seguinte (via copiarRecorrentesParaMes)
+ * e marca o mês seguinte como o mês em vigência. Retorna o mês seguinte.
+ */
+function fecharMes(mesFechado){
+  const proximoMes = shiftMonthKey(mesFechado, 1);
+  salvarRelatorioFechamento(mesFechado);
+  copiarRecorrentesParaMes(mesFechado, proximoMes);
   marcarMesAberto(proximoMes);
   return proximoMes;
 }

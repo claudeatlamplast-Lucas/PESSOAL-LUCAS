@@ -28,7 +28,7 @@ function renderReceitas(container){
       ${lista.length ? lista.map(r=>`
         <div class="row-item">
           <div class="ri-main">
-            <div class="ri-title">${escapeHtml(r.fonte)} ${r.variavel?'<span class="tag tag-olive">VARIÁVEL</span>':''}</div>
+            <div class="ri-title">${escapeHtml(r.fonte)} ${r.variavel?'<span class="tag tag-olive">VARIÁVEL</span>':''} ${r.recorrente?'<span class="tag tag-recorrente">RECORRENTE</span>':''}</div>
             <div class="ri-sub">Recebido em ${formatDate(r.data)}</div>
           </div>
           <div class="ri-value">${formatCurrency(r.valor)}</div>
@@ -62,7 +62,7 @@ function renderReceitas(container){
 
 function openReceitaForm(existing, onSaved){
   const isEdit = !!existing;
-  const r = existing || { fonte:'', valor:'', data: mesSelecionado+'-05', variavel:false, mes: mesSelecionado };
+  const r = existing || { fonte:'', valor:'', data: mesSelecionado+'-05', variavel:false, recorrente:false, mes: mesSelecionado };
 
   openModal(`
     <div class="modal-title">
@@ -92,6 +92,10 @@ function openReceitaForm(existing, onSaved){
         <input type="checkbox" id="chk-variavel" name="variavel" ${r.variavel?'checked':''}>
         <label for="chk-variavel" style="margin:0;">Receita variável (valor muda todo mês)</label>
       </div>
+      <div class="checkbox-field field">
+        <input type="checkbox" id="chk-recorrente" name="recorrente" ${r.recorrente?'checked':''}>
+        <label for="chk-recorrente" style="margin:0;">Receita recorrente (repete todo mês — pode ser copiada automaticamente ao preparar o mês seguinte)</label>
+      </div>
       <div class="form-actions">
         <button type="button" class="btn" id="btn-cancel">Cancelar</button>
         <button type="submit" class="btn btn-primary">Salvar</button>
@@ -109,7 +113,8 @@ function openReceitaForm(existing, onSaved){
           valor: Number(fd.get('valor')),
           data: fd.get('data'),
           mes: fd.get('mes'),
-          variavel: !!fd.get('variavel')
+          variavel: !!fd.get('variavel'),
+          recorrente: !!fd.get('recorrente')
         };
         if(!payload.fonte || !payload.valor || !payload.data || !payload.mes){
           showToast('Preencha todos os campos obrigatórios.', 'error'); return;

@@ -255,6 +255,59 @@ function calcSimulacaoCenario(dividaId, novoDia){
   return gerarLinhaDoTempoCaixa(overrides);
 }
 
+/* ---------------- Projeção multi-mês ---------------- */
+
+/** Quantos meses (mínimo 3) a projeção deve cobrir — estende até o mês mais distante já cadastrado. */
+function horizonteProjecao(){
+  const mesAtual = currentMonthKey();
+  const conhecidos = listaMesesConhecidos();
+  const maisFuturo = conhecidos.reduce((max,m)=> m>max?m:max, mesAtual);
+  let count = 1, cursor = mesAtual;
+  while(cursor < maisFuturo && count < 12){ cursor = shiftMonthKey(cursor,1); count++; }
+  return Math.max(count, 3);
+}
+
+/**
+ * Projeta o saldo em conta mês a mês a partir de hoje: o mês atual usa a linha do tempo diária
+ * (mais precisa, já considera saldo real e vencimentos por dia); os meses seguintes usam as
+ * dívidas e receitas já cadastradas (pendentes) e assumem que o orçamento variável configurado
+ * será usado por inteiro — assim, ao cadastrar (ou "preparar") um mês futuro, o mentor já mostra
+ * se ele fecha no positivo ou no vermelho, mesmo sem nenhum gasto lançado ainda.
+ */
+function calcProjecaoMeses(numMeses){
+  numMeses = numMeses || horizonteProjecao();
+  const mesAtual = currentMonthKey();
+  const situacaoAtual = calcSituacaoCaixa();
+  const meses = [{
+    mes: mesAtual, atual: true,
+    saldoInicial: situacaoAtual.saldoAtual, saldoFinal: situacaoAtual.saldoFinalProjetado,
+    receita: calcReceitaTotal(mesAtual), dividas: calcDividasTotal(mesAtual),
+    temDados: true, deficit: situacaoAtual.deficit
+  }];
+
+  let saldoInicial = situacaoAtual.saldoFinalProjetado;
+  let mesCursor = mesAtual;
+  for(let i=1; i<numMeses; i++){
+    mesCursor = shiftMonthKey(mesCursor, 1);
+    const receita = calcReceitaTotal(mesCursor);
+    const dividas = calcDividasPendentesTotal(mesCursor);
+    const orcCategorias = calcOrcamentoPorCategoria(mesCursor);
+    const orcVariavelTotal = Object.values(orcCategorias).reduce((s,c)=>s+c.orcamento,0);
+    const gastoVariavelReal = Object.values(orcCategorias).reduce((s,c)=>s+c.gasto,0);
+    const metaPoupanca = Number(STATE.configOrcamento.metaPoupancaMensal||0);
+    const consumoVariavel = Math.max(orcVariavelTotal, gastoVariavelReal);
+    const saldoFinal = saldoInicial + receita - dividas - consumoVariavel - metaPoupanca;
+    meses.push({
+      mes: mesCursor, atual: false,
+      saldoInicial, saldoFinal, receita, dividas,
+      temDados: receita>0 || dividas>0,
+      deficit: saldoFinal < 0
+    });
+    saldoInicial = saldoFinal;
+  }
+  return meses;
+}
+
 /* ---------------- Mentor de Gastos e Estratégias ---------------- */
 
 /**
@@ -337,5 +390,11 @@ function calcMentor(){
     estrategias.push(`O mês está sob controle — dá pra guardar ${formatCurrency(caixa.reservaSegura)} sem comprometer nenhuma conta.`);
   }
 
-  return { caixa, pagamentos, mercado, poupanca, estrategias, melhorPonto };
+  const projecao = calcProjecaoMeses();
+  const primeiroMesRisco = projecao.find(p=>!p.atual && p.deficit);
+  if(primeiroMesRisco){
+    estrategias.push(`Olhando pra frente: no ritmo atual, ${formatMonthLabel(primeiroMesRisco.mes)} projeta fechar no vermelho. Vale rever as dívidas ou receitas desse mês com antecedência.`);
+  }
+
+  return { caixa, pagamentos, mercado, poupanca, estrategias, melhorPonto, projecao };
 }

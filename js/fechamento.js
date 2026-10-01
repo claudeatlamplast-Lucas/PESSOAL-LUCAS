@@ -12,6 +12,7 @@ function openResumoMesModal(mes, opts){
       <h3 class="mb-0">Resumo — ${escapeHtml(formatMonthLabel(mes))}</h3>
       <button class="btn-icon" id="modal-close"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
     </div>
+    <p class="hint">Ao fechar, o relatório completo de ${escapeHtml(formatMonthLabel(mes))} fica salvo na aba Relatório do Mês.</p>
     ${opts.automatico ? `<p class="hint">O calendário virou o mês — aqui está o fechamento de ${escapeHtml(formatMonthLabel(mes))} antes de seguir para ${escapeHtml(formatMonthLabel(proximoMes))}.</p>` : ''}
 
     <div class="grid" style="grid-template-columns:1fr 1fr;">
@@ -86,10 +87,11 @@ function openResumoMesModal(mes, opts){
       });
       root.querySelector('#btn-fechar-mes')?.addEventListener('click', ()=>{
         const novoMes = fecharMes(mes);
-        mesSelecionado = novoMes;
+        mesSelecionado = mes; // mostra o relatório do mês que acabou de fechar
         closeModal();
         showToast(`${formatMonthLabel(mes)} fechado. ${formatMonthLabel(novoMes)} está em vigência.`);
-        renderCurrentRoute();
+        if(window.location.hash === '#/relatorio') renderCurrentRoute();
+        else window.location.hash = '#/relatorio';
       });
     }
   });

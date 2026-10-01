@@ -63,6 +63,22 @@ function renderMentor(container){
       </div>
     </div>
 
+    <div class="section-title">Projeção — Próximos Meses</div>
+    <div class="panel list">
+      ${m.projecao.map(p=>`
+        <div class="row-item ${p.deficit?'card alert':''}">
+          <div class="ri-main">
+            <div class="ri-title">${escapeHtml(formatMonthLabel(p.mes))} ${p.atual?'<span class="tag tag-olive">ATUAL</span>':''}</div>
+            <div class="ri-sub">${p.atual
+              ? (p.deficit ? 'projeção do mês fecha no vermelho' : 'projeção do mês positiva')
+              : (p.temDados ? (p.deficit ? 'projeção fecha no vermelho' : 'projeção positiva') : 'sem dívidas/receitas cadastradas ainda')}</div>
+          </div>
+          <div class="ri-value" style="color:${p.saldoFinal>=0?'var(--success)':'var(--alert-light)'}">${formatCurrency(p.saldoFinal)}</div>
+        </div>
+      `).join('')}
+    </div>
+    <p class="hint">Os meses futuros usam as dívidas e receitas já cadastradas e o orçamento variável configurado. Use "🗓️ Preparar Próximo Mês" no QG pra copiar as contas fixas e receitas recorrentes automaticamente.</p>
+
     <div class="section-title">Estratégias Gerais</div>
     <div class="panel list">
       ${m.estrategias.length ? m.estrategias.map(t=>`
